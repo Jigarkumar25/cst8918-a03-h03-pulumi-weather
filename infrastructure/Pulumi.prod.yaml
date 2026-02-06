@@ -1,0 +1,21 @@
+config:
+  azure-native:location: westus2
+
+  # Path to app folder relative to /infrastructure
+  cst8918-a03_infra:appPath: ".."
+
+  # Naming prefix for Azure resources (NO underscores here)
+  cst8918-a03_infra:prefixName: "cst8918-a03-pate1595"
+
+  # Docker image tag
+  cst8918-a03_infra:imageTag: "v1"
+
+  # Ports
+  cst8918-a03_infra:containerPort: 3000
+  cst8918-a03_infra:publicPort: 3000
+  # ACI sizing
+  cst8918-a03_infra:cpu: 1
+  cst8918-a03_infra:memory: 1.5
+
+  # Weather key (Part 1)
+  cst8918-a03_infra:weatherApiKey: "ae955b8fe9c05ad26f7cf2a0d9289135"
