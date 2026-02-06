@@ -1,43 +1,68 @@
 import { json } from '@remix-run/node'
 import { useLoaderData } from '@remix-run/react'
-import { fetchWeatherData } from '../api-services/open-weather-service'
-import { capitalizeFirstLetter } from '../utils/text-formatting'
-import type { MetaFunction } from '@remix-run/node'
+import type { LoaderFunctionArgs } from '@remix-run/node'
 
-export const meta: MetaFunction = () => {
-  return [
-    { title: 'Remix Weather' },
-    {
-      name: 'description',
-      content: 'A demo web app using Remix and OpenWeather API.',
-    },
-  ]
-}
+import { fetchWeatherData } from '~/api-services/open-weather-service'
 
-const location = {
-  city: 'Ottawa',
-  postalCode: 'K2G 1V8', // Algonquin College, Woodroffe Campus
-  lat: 45.3211,
-  lon: -75.7391,
-  countryCode: 'CA',
-}
-const units = 'metric'
+export async function loader({ request }: LoaderFunctionArgs) {
+  // NOTE: Use whatever lat/lon/units your project already uses.
+  // These defaults are just to keep the sample working.
+  const lat = 45.4215
+  const lon = -75.6972
+  const units = 'metric'
 
-export async function loader() {
-  // TODO: accept query params for location and units
-  // TODO: look up location by postal code
-
-  const data = await fetchWeatherData({
-    lat: location.lat,
-    lon: location.lon,
-    units: units,
-  })
-  return json({ currentConditions: data })
+  try {
+    const data = await fetchWeatherData({ lat, lon, units })
+    return json({ currentConditions: data, error: null })
+  } catch (err: any) {
+    return json({
+      currentConditions: null,
+      error: err?.message ?? 'Failed to load weather data',
+    })
+  }
 }
 
 export default function CurrentConditions() {
-  const { currentConditions } = useLoaderData<typeof loader>()
-  const weather = currentConditions.weather[0]
+  const { currentConditions, error } = useLoaderData<typeof loader>()
+
+  // If API failed, show a friendly message instead of crashing
+  if (error) {
+    return (
+      <main
+        style={{
+          padding: '1.5rem',
+          fontFamily: 'system-ui, sans-serif',
+          lineHeight: '1.8',
+        }}
+      >
+        <h1>Weather App</h1>
+        <p style={{ color: 'crimson' }}>Error: {error}</p>
+        <p>
+          Check that <code>WEATHER_API_KEY</code> is set and valid, and that Redis is running.
+        </p>
+      </main>
+    )
+  }
+
+  // Extra safety (shouldn't happen if no error, but keeps SSR safe)
+  if (!currentConditions) {
+    return (
+      <main
+        style={{
+          padding: '1.5rem',
+          fontFamily: 'system-ui, sans-serif',
+          lineHeight: '1.8',
+        }}
+      >
+        <h1>Weather App</h1>
+        <p>Loading...</p>
+      </main>
+    )
+  }
+
+  // ✅ This fixes your crash (no more [0] of undefined)
+  const weather = currentConditions?.weather?.[0]
+
   return (
     <>
       <main
@@ -47,69 +72,22 @@ export default function CurrentConditions() {
           lineHeight: '1.8',
         }}
       >
-        <h1>Remix Weather</h1>
-        <p>
-          For Algonquin College, Woodroffe Campus <br />
-          <span style={{ color: 'hsl(220, 23%, 60%)' }}>
-            (LAT: {location.lat}, LON: {location.lon})
-          </span>
-        </p>
-        <h2>Current Conditions</h2>
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: '2rem',
-            alignItems: 'center',
-          }}
-        >
-          <img src={getWeatherIconUrl(weather.icon)} alt="" />
-          <div style={{ fontSize: '2rem' }}>
-            {currentConditions.main.temp.toFixed(1)}°C
+        <h1>Current Conditions</h1>
+
+        {!weather ? (
+          <p>Weather data unavailable.</p>
+        ) : (
+          <div>
+            <p>
+              <strong>{weather.main}</strong> — {weather.description}
+            </p>
           </div>
-        </div>
-        <p
-          style={{
-            fontSize: '1.2rem',
-            fontWeight: '400',
-          }}
-        >
-          {capitalizeFirstLetter(weather.description)}. Feels like{' '}
-          {currentConditions.main['feels_like'].toFixed(1)}°C.
-          <br />
-          <span style={{ color: 'hsl(220, 23%, 60%)', fontSize: '0.85rem' }}>
-            updated at{' '}
-            {new Intl.DateTimeFormat('en-CA', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-            }).format(currentConditions.dt * 1000)}
-          </span>
-        </p>
+        )}
+
+        <pre style={{ marginTop: '1rem' }}>
+          {JSON.stringify(currentConditions, null, 2)}
+        </pre>
       </main>
-      <section
-        style={{
-          backgroundColor: 'hsl(220, 54%, 96%)',
-          padding: '0.5rem 1.5rem 1rem 1.5rem',
-          borderRadius: '0.25rem',
-        }}
-      >
-        <h2>Raw Data</h2>
-        <pre>{JSON.stringify(currentConditions, null, 2)}</pre>
-      </section>
-      <hr style={{ marginTop: '2rem' }} />
-      <p>
-        Learn how to customize this app. Read the{' '}
-        <a target="_blank" href="https://remix.run/docs" rel="noreferrer">
-          Remix Docs
-        </a>
-      </p>
     </>
   )
-}
-
-function getWeatherIconUrl(iconCode: string) {
-  return `http://openweathermap.org/img/wn/${iconCode}@2x.png`
 }
